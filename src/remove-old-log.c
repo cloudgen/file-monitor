@@ -1,9 +1,4 @@
-#include <dirent.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <time.h>
-#include <unistd.h>
+#include "remove-old-log.h"
 
 void remove_old_logs(const char *dir) {
   DIR *d = opendir(dir);

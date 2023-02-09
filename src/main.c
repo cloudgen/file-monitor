@@ -1,35 +1,40 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <sys/inotify.h>
-#include <time.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <dirent.h>
-
-#include "file-monitor.h"
-#include "run-detached.h"
+#include "singleton.h"
+#include "daemon-info.h"
+#include "log-message.h"
+#include "receiver.h"
 #include "make-directory.h"
 #include "remove-old-log.h"
-int main(int argc, char** argv) {
-    int fd;
+#include "run-detached.h"
+#include "send-cmd.h"
 
-    if (make_directory("/data/log/file-monitor") != 0) {
-        printf("Error creating directory\n");
-        return 1;
-    }
-    run_detached();
-
-    /* Initialize Inotify*/
-    fd = inotify_init();
-    if (fd < 0) {
-        perror("Couldn't initialize inotify");
-        exit(EXIT_FAILURE);
-    }
-    file_monitor(fd);
-    return 0;
+void handle_exit(int sig) {
+  unlink(SOCKET_NAME);
+  unlink(PID_FILE);
+  log_message("Terminated");
+  exit(0);
 }
- 
+
+int main(int argc, char *argv[]) {
+
+  if (make_directory(LOG_DIR) != 0) {
+    fprintf(stderr, "Error creating directory\n");
+    return 1;
+  }
+
+  if (argc > 1 && strcmp(argv[1], "-d") == 0) {
+    check_singleton();
+    printf("Starting Daemon mode\n");
+    run_detached();
+    signal(SIGINT, handle_exit);
+    signal(SIGTERM, handle_exit);
+    log_message("Daemon Started");
+    create_pid_file();
+    receiver(); 
+    log_message("Daemon Ended Unexpected");
+  } else {
+    send_cmd(argv[1]);
+  }
+  return 0;
+}
